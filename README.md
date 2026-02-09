@@ -6,15 +6,15 @@
 - OCR 노이즈(띄어쓰기 깨짐, 라벨 누락, 값 포맷 흔들림) 상황에서도 보수적으로 파싱
 - 결과를 고정 스키마로 출력해 후속 저장/분석 파이프라인에서 재사용 가능하게 유지
 
-## Quick Start (복사해서 바로 실행)
-아래 명령은 macOS/zsh 기준이며, 순서대로 그대로 실행하면 됩니다.
+## Quick Start (OS별 재현 가이드)
+아래 명령은 프로젝트 루트(`README.md`가 있는 위치)에서 실행합니다.
 
-### 1) 환경 세팅
+### 1) Unix/macOS (bash, zsh)
 ```bash
 # 프로젝트 폴더로 이동
-cd /Users/junseonpark/Study/ocr-parsing-project
+cd /path/to/ocr-parsing-project
 
-# 가상환경 생성
+# 가상환경 생성 (Python 3 명시)
 python3 -m venv .venv
 
 # 가상환경 활성화
@@ -24,30 +24,77 @@ source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install "setuptools<70"
 
-# 버전 확인 (정상 세팅 검증)
+# 버전 확인
 which python
 python --version
 python -m pip --version
 python -c "import setuptools, wheel; print('setuptools=', setuptools.__version__, 'wheel=', wheel.__version__)"
-```
 
-### 2) 프로그램 실행
-```bash
-# 기본 실행: data/ 폴더의 JSON 파싱
-python3 src/ocr-parser/cli.py
+# 실행
+python src/ocr-parser/cli.py
+python src/ocr-parser/cli.py data/sample_01.json
+python src/ocr-parser/cli.py data -r -v
 
-# 샘플 1개만 실행
-python3 src/ocr-parser/cli.py data/sample_01.json
-
-# 재귀 탐색 + 파일 수집 로그 확인
-python3 src/ocr-parser/cli.py data -r -v
-```
-
-### 3) 결과 확인
-```bash
-# 결과 파일 생성 위치
+# 결과 확인
 ls -lah result
 ```
+
+### 2) Windows (PowerShell)
+```powershell
+# 프로젝트 폴더로 이동
+cd C:\path\to\ocr-parsing-project
+
+# Python 설치 확인 (없으면 설치)
+python --version
+# winget install -e --id Python.Python.3.12
+
+# 가상환경 생성/활성화
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 실행 정책 오류 시 1회 허용
+# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# 패키징 도구 정리
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install "setuptools<70"
+
+# 버전 확인
+python --version
+python -m pip --version
+python -c "import setuptools, wheel; print('setuptools=', setuptools.__version__, 'wheel=', wheel.__version__)"
+
+# 실행
+python .\src\ocr-parser\cli.py
+python .\src\ocr-parser\cli.py .\data\sample_01.json
+python .\src\ocr-parser\cli.py .\data -r -v
+
+# 결과 확인
+Get-ChildItem .\result
+```
+
+### 3) Windows 트러블슈팅: `python`이 Store 별칭으로 잡힐 때
+PowerShell에서 `python`이 실제 인터프리터가 아니라 Store 별칭이면 실행이 실패할 수 있습니다.
+
+```powershell
+# 현재 python이 무엇을 가리키는지 확인
+Get-Command python
+where.exe python
+
+# 현재 세션에서만 실제 python.exe로 별칭 강제 (예시 경로)
+Set-Alias python "C:\Users\<USER>\AppData\Local\Programs\Python\Python312\python.exe"
+
+# 확인
+python --version
+python .\src\ocr-parser\cli.py
+```
+
+추가로 Windows 설정에서 `App execution aliases`의 `python.exe`, `python3.exe`를 끄면 재발을 줄일 수 있습니다.
+
+### 4) `python3` vs `python` 사용 기준
+- 가상환경 생성 전: `python3`(Unix/macOS) 또는 `python`(Windows)로 Python 3를 명시
+- 가상환경 활성화 후: `python -m pip`와 `python ...`를 사용해 현재 venv 인터프리터와 pip를 강제로 일치
+- 목적: OS/셸별 실행기 이름 차이와 pip/python 불일치 문제를 줄여 재현성 확보
 
 ## 아키텍처
 ![Architecture](architecture.png)
@@ -71,34 +118,34 @@ OCR 원문(계근지/영수증)은 아래와 같은 노이즈가 반복적으로
 ## 현재 디렉터리 구조
 ```text
 src/ocr-parser/
-  cli.py
+  cli.py                    # CLI 진입점, 인자 파싱 후 전체 파이프라인 실행
   collect/
-    file_collector.py
+    file_collector.py       # 입력 경로에서 JSON 파일 목록 수집
   input/
-    load_json.py
+    load_json.py            # OCR JSON 로드 및 pages[0].lines[].text 추출
   services/
-    pipeline_service.py
+    pipeline_service.py     # 파일 1건 단위 파싱/출력 전체 흐름 조합
   parsing/
     common/
-      normalize.py
-      parsing_labels.py
-      parsing_validators.py
-      parsing_company.py
-      patterns.py
+      normalize.py          # 공백/문자열 정규화 유틸
+      parsing_labels.py     # 라벨 키워드/스키마 필드 정의
+      parsing_validators.py # 날짜/시간/중량 등 값 검증기
+      parsing_company.py    # 업체명/거래처명 파싱 보조 로직
+      patterns.py           # 공통 정규식 패턴 모음
     stage1/
-      orchestrator.py
-      rules.py
+      orchestrator.py       # Stage1 엄격 파싱 오케스트레이션
+      rules.py              # 라벨+값 기반 Stage1 규칙 집합
     stage2/
-      orchestrator.py
-      recovery_common.py
-      recovery_weight.py
-      recovery_identity.py
-      recovery_geo.py
-      recovery_issuer.py
+      orchestrator.py       # Stage2 복구 파싱 오케스트레이션
+      recovery_common.py    # Stage2 공통 복구 유틸/헬퍼
+      recovery_weight.py    # 중량/시간 관련 필드 복구
+      recovery_identity.py  # 차량번호/계량횟수 등 식별 필드 복구
+      recovery_geo.py       # 주소/좌표 관련 필드 복구
+      recovery_issuer.py    # 발행자(업체) 정보 필드 복구
   out/
-    result_writer.py
+    result_writer.py        # 결과 JSON/CSV 경로 생성 및 파일 저장
   presentation/
-    console_printer.py
+    console_printer.py      # 콘솔 리포트 출력 포맷팅
 ```
 
 ## 의존성 / 실행 환경
@@ -115,40 +162,27 @@ src/ocr-parser/
 ## 로컬 실행 방법 (재현 가능)
 아래 명령은 프로젝트 루트(현재 `README.md`가 있는 위치)에서 실행합니다.
 
-1. 가상환경 생성/진입(선택)
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 --version
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install "setuptools<70"
-python -m pip --version
-python -c "import setuptools, wheel; print(setuptools.__version__, wheel.__version__)"
-```
+1. 환경 준비
+- Unix/macOS: `python3 -m venv .venv` 후 `source .venv/bin/activate`
+- Windows PowerShell: `python -m venv .venv` 후 `.\.venv\Scripts\Activate.ps1`
+- 공통: `python -m pip install --upgrade pip setuptools wheel` 및 `python -m pip install "setuptools<70"`
+- Windows에서 `python`이 Store 별칭으로 동작하면 위 `Windows 트러블슈팅`의 `Set-Alias python "<python.exe 경로>"` 적용
 
 2. 기본 실행 (`data/` 하위 JSON 탐색)
-```bash
-python3 src/ocr-parser/cli.py
-```
+- Unix/macOS: `python src/ocr-parser/cli.py`
+- Windows PowerShell: `python .\src\ocr-parser\cli.py`
 
 3. 특정 파일만 실행
-```bash
-python3 src/ocr-parser/cli.py data/sample_01.json
-```
+- Unix/macOS: `python src/ocr-parser/cli.py data/sample_01.json`
+- Windows PowerShell: `python .\src\ocr-parser\cli.py .\data\sample_01.json`
 
 4. 디렉터리 재귀 탐색 + 수집 로그 출력
-```bash
-python3 src/ocr-parser/cli.py data -r -v
-```
+- Unix/macOS: `python src/ocr-parser/cli.py data -r -v`
+- Windows PowerShell: `python .\src\ocr-parser\cli.py .\data -r -v`
 
 5. 샘플 4개 일괄 실행
-```bash
-python3 src/ocr-parser/cli.py \
-  data/sample_01.json \
-  data/sample_02.json \
-  data/sample_03.json \
-  data/sample_04.json
-```
+- Unix/macOS: `python src/ocr-parser/cli.py data/sample_01.json data/sample_02.json data/sample_03.json data/sample_04.json`
+- Windows PowerShell: `python .\src\ocr-parser\cli.py .\data\sample_01.json .\data\sample_02.json .\data\sample_03.json .\data\sample_04.json`
 
 실행 후 결과 파일은 프로젝트 루트의 `result/`에 생성됩니다.
 - 예: `result/sample_04_parsed.json`, `result/sample_04_parsed.csv`
@@ -162,7 +196,7 @@ python3 src/ocr-parser/cli.py \
 
 ### 왜 첫 페이지만 파싱하나?
 - 현재 샘플(01~04)이 모두 `numBilledPages: 1`인 단일 페이지 문서입니다.
-- 계근지/영수증 실무 포맷도 대부분 1장이라, 먼저 1페이지 기준으로 안정적인 규칙을 만드는 것이 우선이라고 판단했습니다.
+- 샘플 데이터 계근지/영수증 형식이 모두 1장이라, 먼저 1페이지 기준으로 안정적인 규칙을 만드는 것이 우선이라고 판단했습니다.
 - 범위를 넓히기 전에 1페이지 품질(정확도/오탐률)을 먼저 고정하는 전략입니다.
 
 Trade-off:
