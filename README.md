@@ -6,11 +6,15 @@
 - OCR 노이즈(띄어쓰기 깨짐, 라벨 누락, 값 포맷 흔들림) 상황에서도 보수적으로 파싱
 - 결과를 고정 스키마로 출력해 후속 저장/분석 파이프라인에서 재사용 가능하게 유지
 
+## 요약
+![Architecture](architecture.png) 
+- `문제:` OCR 노이즈가 있는 계근지 JSON에서 업무 필드를 안정적으로 추출해야 합니다.
+- `접근:` Stage1(엄격 규칙) + Stage2(제한적 복구) 2단계 파이프라인으로 오탐을 줄였습니다.
+- `결과:` 샘플 4건 기준으로 고정 스키마 JSON/CSV를 재현 가능하게 생성하며, 빈 필드는 `warnings`와 함께 보강/관리합니다.
+- `한계/확장:` 현재는 `pages[0].lines[].text` 중심이며, 다음 단계로 `boundingBox` 기반 정밀화와 Stage3(AI+golden set) 고도화를 계획했습니다.
+
 ## Quick Start (OS별 재현 가이드)
 Quick Start 전체는 `QUICKSTART.md`에서 확인하세요: [바로가기](QUICKSTART.md)
-
-## 아키텍처
-![Architecture](architecture.png)
 
 ## 문제 분석과 설계 의도
 OCR 원문(계근지/영수증)은 아래와 같은 노이즈가 반복적으로 나타납니다.
@@ -62,15 +66,15 @@ src/ocr-parser/
 ```
 
 ## 의존성 / 실행 환경
-- Python: `>=3.9` (타입 힌트 문법 기준)
-- 로컬 확인 버전:
+- 필수 런타임: Python `>=3.9` (타입 힌트 문법 기준)
+- 필수 외부 패키지: 없음 (`argparse`, `json`, `csv`, `re`, `pathlib` 등 표준 라이브러리만 사용)
+- 선택(환경 정리): `python -m pip install --upgrade pip setuptools wheel`
+- 문제 발생 시 대응(Python 3.9): `distutils` 관련 오류가 날 때만 `python -m pip install "setuptools<70"`
+- 로컬 확인 버전(참고):
   - `Python 3.9.6`
   - `pip 26.0.1`
   - `setuptools 69.5.1`
   - `wheel 0.46.3`
-- 외부 패키지 의존성: 없음 (`argparse`, `json`, `csv`, `re`, `pathlib` 등 표준 라이브러리만 사용)
-- 주의: Python 3.9 환경에서는 `setuptools>=70`에서 `distutils` 관련 이슈가 발생할 수 있어
-  `setuptools<70` 유지 권장
 
 ## 입력 데이터 계약
 현재 로더는 OCR JSON에서 다음 경로만 사용합니다.
@@ -81,8 +85,7 @@ src/ocr-parser/
 
 ### 왜 첫 페이지만 파싱하나?
 - 현재 샘플(01~04)이 모두 `numBilledPages: 1`인 단일 페이지 문서입니다.
-- 샘플 데이터 계근지/영수증 형식이 모두 1장이라, 먼저 1페이지 기준으로 안정적인 규칙을 만드는 것이 우선이라고 판단했습니다.
-- 범위를 넓히기 전에 1페이지 품질(정확도/오탐률)을 먼저 고정하는 전략입니다.
+- 범위를 넓히기 전에 1페이지 품질(정확도/오탐률)을 먼저 고정하고, 이후 멀티페이지로 확장하는 것이 정확도와 개발 효율 측면에서 더 합리적이라고 판단했습니다.
 
 Trade-off:
 - 다페이지 문서가 들어오면 2페이지 이후 정보는 현재 누락됩니다.
@@ -109,28 +112,33 @@ Trade-off:
 ## 출력 스키마
 출력 스키마는 `parsing/common/parsing_labels.py`의 `PARSE_SCHEMA_FIELDS`를 기준으로 고정됩니다.
 
-- `measured_date`
-- `vehicle_no`
-- `issuer_name`
-- `customer_name`
-- `item_name`
-- `io_type`
-- `ticket_id`
-- `measure_count`
-- `issuer_address`
-- `issuer_tel`
-- `issuer_fax`
-- `gross_kg`
-- `gross_time`
-- `tare_kg`
-- `tare_time`
-- `net_kg`
-- `net_time`
-- `gps_lat`
-- `gps_lon`
-- `warnings` (문자열 리스트)
+스키마는 샘플 데이터 4건(`sample_01.json` ~ `sample_04.json`)을 분석한 뒤, 아래 질문 순서로 설계했습니다.
+
+1. 회사 도메인에서 계근지 데이터 중 어떤 값이 실제 업무에 필요한가?
+2. 샘플 데이터에서 공통으로 반복되는 핵심 요소는 무엇인가?
+3. 우선순위는 공통 핵심 데이터를 먼저 두고, 그다음 공통되지 않더라도 업무상 중요한 데이터를 포함할 것인가?
+
+위 기준을 바탕으로 필드를 다음 우선순위로 관리합니다.
+
+- `P0 (공통 + 업무 핵심)`: `measured_date`, `vehicle_no`, `io_type`, `ticket_id`, `measure_count`, `gross_kg`, `tare_kg`, `net_kg`, `gross_time`, `tare_time`, `net_time`
+- `P1 (비공통 가능 + 업무 중요)`: `issuer_name`, `customer_name`, `item_name`, `issuer_address`, `issuer_tel`, `issuer_fax`
+- `P2 (부가 정보 + 추적/디버깅)`: `gps_lat`, `gps_lon`, `warnings`
+
+고정 스키마를 유지한 이유는 후속 저장/분석 파이프라인에서 컬럼 일관성을 확보하고, 문서별 누락 필드가 있어도 동일한 형태로 적재하기 위해서입니다.
+- 전체 필드 수는 `20개`이며, 최종 필드 목록은 `parsing/common/parsing_labels.py`의 `PARSE_SCHEMA_FIELDS`를 단일 기준으로 사용합니다.
 
 `CSV`는 `field, stage1_value, stage2_value` 3열로 저장됩니다.
+
+## `warnings` 코드 해석
+`warnings`는 Stage2 보강 과정에서 발생한 불확실성/의사결정 근거를 기록하는 진단 정보입니다.
+
+| code prefix | 의미 | 영향 | 권장 확인 |
+|---|---|---|---|
+| `ISSUER_FROM_SCORE:*` | 발행자(`issuer_name`)를 점수 기반으로 선택 | 발행자 오탐 가능성 존재 | 회사명 후보 라인과 라벨 근거 확인 |
+| `COMPANY_CANDIDATE_COUNT:*` | 회사명/거래처 후보 개수 탐지 결과 | 후보가 많을수록 역할 혼동 가능성 증가 | `issuer_name`, `customer_name` 교차 검증 |
+| `COMPANY_TOP_ISSUER:*` | 발행자 최상위 후보와 점수 기록 | 점수가 낮으면 발행자 신뢰도 낮음 | 후보 점수와 원문 라인 비교 |
+| `COMPANY_TOP_COUNTERPARTY:*` | 거래처 최상위 후보와 점수 기록 | 거래처 누락/오인식 가능 | 거래처 호칭/라벨 근거 확인 |
+| `COUNTERPARTY_MISSING_*` | 거래처를 확정하지 못했거나 누락 의심 | `customer_name` 빈값 가능 | OCR 누락 여부 및 주변 라인 재검토 |
 
 ## 파싱 설계
 ### 1) Stage 1 (Strict)
@@ -176,16 +184,22 @@ Trade-off:
 - 자동 테스트(예: golden set 비교)와 평가 리포트가 아직 없음
 
 ## 개선 아이디어
-- `warnings`를 구조화 객체로 확장
-  - 예: `{code, field, rule_id, message, line_idx}`
-- 샘플 확장 + 회귀 테스트 추가 (`pytest` + expected json snapshot)
-- 멀티페이지 파싱 옵션 추가 (`--page all` 등)
-- 라벨/패턴을 코드 하드코딩 대신 설정 파일(YAML/JSON)로 외부화
-- 회사명/주소/연락처 추론 점수에 신뢰도(score) 출력 추가
-- CLI 옵션 확장
-  - `--no-print`, `--only-stage2`, `--output-dir` 등
+- `BoundingBox` 좌표 기반 정확도 향상
+  - `lines[].text` 중심 파싱에 `words[].boundingBox`를 결합해 라벨-값의 공간적 인접성, 정렬, 블록 영역(헤더/본문/푸터)을 함께 판단
+  - 라벨 누락/줄 분리/표 형태 문서에서 필드 매핑 정확도를 개선하고, 좌표 근거가 충분한 필드만 보강하는 보수적 전략 적용
+- Stage3 파이프라인 설계 (데이터 증가 시 AI 활용)
+  - Golden set(정답 라벨 데이터)이 충분히 쌓이면 Stage1/2 실패 또는 저신뢰 케이스만 Stage3(AI Recovery) 대상으로 처리
+  - Stage3 입력: OCR 원문 + Stage1/2 중간 결과 + 후보 필드/좌표 근거
+  - Stage3 출력: 필드값 + 근거 + 신뢰도(score) + `warnings` 메타데이터
+- CoT(Chain of Thought) 기법 고려
+  - 모델 내부 추론을 단계적으로 유도해 분리 라벨/다중 후보 값 같은 복잡 케이스의 일관성 향상
+  - 운영 로그에는 장문 추론 대신 `field`, `evidence`, `confidence`, `decision_reason` 형태의 요약 근거를 저장
+  - 배포 기준은 Golden set 회귀 평가(정확도/재현율/필드별 오류율) 통과 시로 제한
 
 ## 빠른 디버깅 팁
 - 파일 수집 확인: `-v` 옵션 사용
 - 규칙 미매칭 확인: 콘솔의 `[파싱-1단계]`에서 빈값 필드 확인
 - 복구 확인: `[파싱-2단계]`의 `[2단계 보강]` 태그와 `warnings` 확인
+
+## 실행 결과 
+실행 결과는 `RESULT.md`에서 확인하세요: [바로가기](RESULT.md)
