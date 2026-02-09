@@ -1,0 +1,52 @@
+{
+  "source_file": "data/sample_01.json",
+  "stage1": {
+    "measured_date": "2026-02-02",
+    "vehicle_no": "8713",
+    "issuer_name": "",
+    "customer_name": "곰욕환경폐기물",
+    "item_name": "",
+    "io_type": "",
+    "ticket_id": "",
+    "measure_count": "",
+    "issuer_address": "",
+    "issuer_tel": "",
+    "issuer_fax": "",
+    "gross_kg": "",
+    "gross_time": "",
+    "tare_kg": "",
+    "tare_time": "",
+    "net_kg": 5010,
+    "net_time": "",
+    "gps_lat": "",
+    "gps_lon": "",
+    "warnings": []
+  },
+  "stage2": {
+    "measured_date": "2026-02-02",
+    "vehicle_no": "8713",
+    "issuer_name": "동우바이오(주)",
+    "customer_name": "곰욕환경폐기물",
+    "item_name": "",
+    "io_type": "",
+    "ticket_id": "",
+    "measure_count": "",
+    "issuer_address": "",
+    "issuer_tel": "",
+    "issuer_fax": "",
+    "gross_kg": 12480,
+    "gross_time": "05:26:18",
+    "tare_kg": 7470,
+    "tare_time": "05:36:01",
+    "net_kg": 5010,
+    "net_time": "",
+    "gps_lat": 37.105317,
+    "gps_lon": 127.375673,
+    "warnings": [
+      "ISSUER_FROM_SCORE:COMPANY_CANDIDATE_SMELL",
+      "COMPANY_CANDIDATE_COUNT:2",
+      "COMPANY_TOP_ISSUER:COMPANY_CANDIDATE_SMELL:5",
+      "COMPANY_TOP_COUNTERPARTY:COMPANY_CANDIDATE_LABEL:5"
+    ]
+  }
+}

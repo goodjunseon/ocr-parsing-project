@@ -1,0 +1,52 @@
+{
+  "source_file": "data/sample_02.json",
+  "stage1": {
+    "measured_date": "2026-02-02",
+    "vehicle_no": "80구8713",
+    "issuer_name": "",
+    "customer_name": "고요환경",
+    "item_name": "식물",
+    "io_type": "입고",
+    "ticket_id": "010889",
+    "measure_count": "",
+    "issuer_address": "",
+    "issuer_tel": "",
+    "issuer_fax": "",
+    "gross_kg": 13460,
+    "gross_time": "02:07",
+    "tare_kg": 7560,
+    "tare_time": "02:13",
+    "net_kg": 5900,
+    "net_time": "",
+    "gps_lat": "",
+    "gps_lon": "",
+    "warnings": []
+  },
+  "stage2": {
+    "measured_date": "2026-02-02",
+    "vehicle_no": "80구8713",
+    "issuer_name": "장원C&S",
+    "customer_name": "고요환경",
+    "item_name": "식물",
+    "io_type": "입고",
+    "ticket_id": "010889",
+    "measure_count": "",
+    "issuer_address": "",
+    "issuer_tel": "",
+    "issuer_fax": "",
+    "gross_kg": 13460,
+    "gross_time": "02:07",
+    "tare_kg": 7560,
+    "tare_time": "02:13",
+    "net_kg": 5900,
+    "net_time": "",
+    "gps_lat": 37.718114,
+    "gps_lon": 126.84494,
+    "warnings": [
+      "ISSUER_FROM_SCORE:COMPANY_CANDIDATE_SMELL",
+      "COMPANY_CANDIDATE_COUNT:2",
+      "COMPANY_TOP_ISSUER:COMPANY_CANDIDATE_SMELL:2",
+      "COMPANY_TOP_COUNTERPARTY:COMPANY_CANDIDATE_LABEL:5"
+    ]
+  }
+}

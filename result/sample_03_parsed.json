@@ -1,0 +1,53 @@
+{
+  "source_file": "data/sample_03.json",
+  "stage1": {
+    "measured_date": "2026-02-01",
+    "vehicle_no": "5405",
+    "issuer_name": "",
+    "customer_name": "",
+    "item_name": "",
+    "io_type": "",
+    "ticket_id": "",
+    "measure_count": "",
+    "issuer_address": "",
+    "issuer_tel": "",
+    "issuer_fax": "",
+    "gross_kg": 14080,
+    "gross_time": "11:33",
+    "tare_kg": 13950,
+    "tare_time": "11:39",
+    "net_kg": 130,
+    "net_time": "",
+    "gps_lat": "",
+    "gps_lon": "",
+    "warnings": []
+  },
+  "stage2": {
+    "measured_date": "2026-02-01",
+    "vehicle_no": "5405",
+    "issuer_name": "정우리사이클링 (주)",
+    "customer_name": "",
+    "item_name": "",
+    "io_type": "입고",
+    "ticket_id": "",
+    "measure_count": "",
+    "issuer_address": "경기도 화성시 팔탄면 노하길454번길 23",
+    "issuer_tel": "031-354-7778",
+    "issuer_fax": "",
+    "gross_kg": 14080,
+    "gross_time": "11:33",
+    "tare_kg": 13950,
+    "tare_time": "11:39",
+    "net_kg": 130,
+    "net_time": "",
+    "gps_lat": "",
+    "gps_lon": "",
+    "warnings": [
+      "ISSUER_FROM_SCORE:COMPANY_CANDIDATE_SMELL",
+      "COUNTERPARTY_MISSING_POSSIBLE_OCR_DROP",
+      "COMPANY_CANDIDATE_COUNT:1",
+      "COMPANY_TOP_ISSUER:COMPANY_CANDIDATE_SMELL:6",
+      "COMPANY_TOP_COUNTERPARTY:COMPANY_CANDIDATE_SMELL:-1"
+    ]
+  }
+}

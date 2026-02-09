@@ -1,0 +1,21 @@
+field,stage1_value,stage2_value
+measured_date,2025-12-01,2025-12-01
+vehicle_no,0580,0580
+issuer_name,,(주) 하 은 펄 프
+customer_name,,신성(푸디스트)
+item_name,국판,국판
+io_type,,입고
+ticket_id,,
+measure_count,0022,0022
+issuer_address,,경기도 화성시 팔탄면 포승향남로 2960-19
+issuer_tel,031-359-9127,031-359-9127
+issuer_fax,031-359-9128,031-359-9128
+gross_kg,14230,14230
+gross_time,09:09,09:09
+tare_kg,12910,12910
+tare_time,09:09,09:09
+net_kg,1320,1320
+net_time,,
+gps_lat,,
+gps_lon,,
+warnings,[],"['ISSUER_FROM_SCORE:COMPANY_CANDIDATE_SMELL', 'COMPANY_CANDIDATE_COUNT:3', 'COMPANY_TOP_ISSUER:COMPANY_CANDIDATE_SMELL:10', 'COMPANY_TOP_COUNTERPARTY:COMPANY_CANDIDATE_HONORIFIC:6']"
