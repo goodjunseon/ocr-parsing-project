@@ -6,6 +6,22 @@
 - OCR 노이즈(띄어쓰기 깨짐, 라벨 누락, 값 포맷 흔들림) 상황에서도 보수적으로 파싱
 - 결과를 고정 스키마로 출력해 후속 저장/분석 파이프라인에서 재사용 가능하게 유지
 
+## 목차
+1. [요약](#요약)
+2. [Quick Start (OS별 재현 가이드)](#quick-start-os별-재현-가이드)
+3. [의존성 / 실행 환경](#의존성--실행-환경)
+4. [문제 분석과 설계 의도](#문제-분석과-설계-의도)
+5. [입력 데이터 계약](#입력-데이터-계약)
+6. [출력 스키마](#출력-스키마)
+7. [파싱 설계](#파싱-설계)
+8. [`warnings` 코드 해석](#warnings-코드-해석)
+9. [주요 가정 (Design Assumptions)](#주요-가정-design-assumptions)
+10. [한계](#한계)
+11. [개선 아이디어](#개선-아이디어)
+12. [현재 디렉터리 구조](#현재-디렉터리-구조)
+13. [빠른 디버깅 팁](#빠른-디버깅-팁)
+14. [실행 결과](#실행-결과)
+
 ## 요약
 ![Architecture](architecture.png) 
 - `문제:` OCR 노이즈가 있는 계근지 JSON에서 업무 필드를 안정적으로 추출해야 합니다.
@@ -15,6 +31,17 @@
 
 ## Quick Start (OS별 재현 가이드)
 Quick Start 전체는 `QUICKSTART.md`에서 확인하세요: [바로가기](QUICKSTART.md)
+
+## 의존성 / 실행 환경
+- 필수 런타임: Python `>=3.9` (타입 힌트 문법 기준)
+- 필수 외부 패키지: 없음 (`argparse`, `json`, `csv`, `re`, `pathlib` 등 표준 라이브러리만 사용)
+- 선택(환경 정리): `python -m pip install --upgrade pip setuptools wheel`
+- 문제 발생 시 대응(Python 3.9): `distutils` 관련 오류가 날 때만 `python -m pip install "setuptools<70"`
+- 로컬 확인 버전(참고):
+  - `Python 3.9.6`
+  - `pip 26.0.1`
+  - `setuptools 69.5.1`
+  - `wheel 0.46.3`
 
 ## 문제 분석과 설계 의도
 OCR 원문(계근지/영수증)은 아래와 같은 노이즈가 반복적으로 나타납니다.
@@ -31,50 +58,6 @@ OCR 원문(계근지/영수증)은 아래와 같은 노이즈가 반복적으로
 - Stage2(Recovery): Stage1에서 빈 필드만 제한적으로 보강
 
 즉, **먼저 확실한 값만 확보하고, 그 다음에만 신중하게 복구**하는 구조입니다.
-
-## 현재 디렉터리 구조
-```text
-src/ocr-parser/
-  cli.py                    # CLI 진입점, 인자 파싱 후 전체 파이프라인 실행
-  collect/
-    file_collector.py       # 입력 경로에서 JSON 파일 목록 수집
-  input/
-    load_json.py            # OCR JSON 로드 및 pages[0].lines[].text 추출
-  services/
-    pipeline_service.py     # 파일 1건 단위 파싱/출력 전체 흐름 조합
-  parsing/
-    common/
-      normalize.py          # 공백/문자열 정규화 유틸
-      parsing_labels.py     # 라벨 키워드/스키마 필드 정의
-      parsing_validators.py # 날짜/시간/중량 등 값 검증기
-      parsing_company.py    # 업체명/거래처명 파싱 보조 로직
-      patterns.py           # 공통 정규식 패턴 모음
-    stage1/
-      orchestrator.py       # Stage1 엄격 파싱 오케스트레이션
-      rules.py              # 라벨+값 기반 Stage1 규칙 집합
-    stage2/
-      orchestrator.py       # Stage2 복구 파싱 오케스트레이션
-      recovery_common.py    # Stage2 공통 복구 유틸/헬퍼
-      recovery_weight.py    # 중량/시간 관련 필드 복구
-      recovery_identity.py  # 차량번호/계량횟수 등 식별 필드 복구
-      recovery_geo.py       # 주소/좌표 관련 필드 복구
-      recovery_issuer.py    # 발행자(업체) 정보 필드 복구
-  out/
-    result_writer.py        # 결과 JSON/CSV 경로 생성 및 파일 저장
-  presentation/
-    console_printer.py      # 콘솔 리포트 출력 포맷팅
-```
-
-## 의존성 / 실행 환경
-- 필수 런타임: Python `>=3.9` (타입 힌트 문법 기준)
-- 필수 외부 패키지: 없음 (`argparse`, `json`, `csv`, `re`, `pathlib` 등 표준 라이브러리만 사용)
-- 선택(환경 정리): `python -m pip install --upgrade pip setuptools wheel`
-- 문제 발생 시 대응(Python 3.9): `distutils` 관련 오류가 날 때만 `python -m pip install "setuptools<70"`
-- 로컬 확인 버전(참고):
-  - `Python 3.9.6`
-  - `pip 26.0.1`
-  - `setuptools 69.5.1`
-  - `wheel 0.46.3`
 
 ## 입력 데이터 계약
 현재 로더는 OCR JSON에서 다음 경로만 사용합니다.
@@ -129,17 +112,6 @@ Trade-off:
 
 `CSV`는 `field, stage1_value, stage2_value` 3열로 저장됩니다.
 
-## `warnings` 코드 해석
-`warnings`는 Stage2 보강 과정에서 발생한 불확실성/의사결정 근거를 기록하는 진단 정보입니다.
-
-| code prefix | 의미 | 영향 | 권장 확인 |
-|---|---|---|---|
-| `ISSUER_FROM_SCORE:*` | 발행자(`issuer_name`)를 점수 기반으로 선택 | 발행자 오탐 가능성 존재 | 회사명 후보 라인과 라벨 근거 확인 |
-| `COMPANY_CANDIDATE_COUNT:*` | 회사명/거래처 후보 개수 탐지 결과 | 후보가 많을수록 역할 혼동 가능성 증가 | `issuer_name`, `customer_name` 교차 검증 |
-| `COMPANY_TOP_ISSUER:*` | 발행자 최상위 후보와 점수 기록 | 점수가 낮으면 발행자 신뢰도 낮음 | 후보 점수와 원문 라인 비교 |
-| `COMPANY_TOP_COUNTERPARTY:*` | 거래처 최상위 후보와 점수 기록 | 거래처 누락/오인식 가능 | 거래처 호칭/라벨 근거 확인 |
-| `COUNTERPARTY_MISSING_*` | 거래처를 확정하지 못했거나 누락 의심 | `customer_name` 빈값 가능 | OCR 누락 여부 및 주변 라인 재검토 |
-
 ## 파싱 설계
 ### 1) Stage 1 (Strict)
 `parsing/stage1`에서 동작합니다.
@@ -165,6 +137,17 @@ Trade-off:
 - Stage1 성공값은 유지
 - Stage2는 “가능성 높은 보강”만 수행
 - 과감한 추론보다 오탐 방지를 우선
+
+## `warnings` 코드 해석
+`warnings`는 Stage2 보강 과정에서 발생한 불확실성/의사결정 근거를 기록하는 진단 정보입니다.
+
+| code prefix | 의미 | 영향 | 권장 확인 |
+|---|---|---|---|
+| `ISSUER_FROM_SCORE:*` | 발행자(`issuer_name`)를 점수 기반으로 선택 | 발행자 오탐 가능성 존재 | 회사명 후보 라인과 라벨 근거 확인 |
+| `COMPANY_CANDIDATE_COUNT:*` | 회사명/거래처 후보 개수 탐지 결과 | 후보가 많을수록 역할 혼동 가능성 증가 | `issuer_name`, `customer_name` 교차 검증 |
+| `COMPANY_TOP_ISSUER:*` | 발행자 최상위 후보와 점수 기록 | 점수가 낮으면 발행자 신뢰도 낮음 | 후보 점수와 원문 라인 비교 |
+| `COMPANY_TOP_COUNTERPARTY:*` | 거래처 최상위 후보와 점수 기록 | 거래처 누락/오인식 가능 | 거래처 호칭/라벨 근거 확인 |
+| `COUNTERPARTY_MISSING_*` | 거래처를 확정하지 못했거나 누락 의심 | `customer_name` 빈값 가능 | OCR 누락 여부 및 주변 라인 재검토 |
 
 ## 주요 가정 (Design Assumptions)
 - OCR JSON은 `pages[0].lines[].text` 구조를 가진다.
@@ -195,6 +178,39 @@ Trade-off:
   - 모델 내부 추론을 단계적으로 유도해 분리 라벨/다중 후보 값 같은 복잡 케이스의 일관성 향상
   - 운영 로그에는 장문 추론 대신 `field`, `evidence`, `confidence`, `decision_reason` 형태의 요약 근거를 저장
   - 배포 기준은 Golden set 회귀 평가(정확도/재현율/필드별 오류율) 통과 시로 제한
+
+## 현재 디렉터리 구조
+```text
+src/ocr-parser/
+  cli.py                    # CLI 진입점, 인자 파싱 후 전체 파이프라인 실행
+  collect/
+    file_collector.py       # 입력 경로에서 JSON 파일 목록 수집
+  input/
+    load_json.py            # OCR JSON 로드 및 pages[0].lines[].text 추출
+  services/
+    pipeline_service.py     # 파일 1건 단위 파싱/출력 전체 흐름 조합
+  parsing/
+    common/
+      normalize.py          # 공백/문자열 정규화 유틸
+      parsing_labels.py     # 라벨 키워드/스키마 필드 정의
+      parsing_validators.py # 날짜/시간/중량 등 값 검증기
+      parsing_company.py    # 업체명/거래처명 파싱 보조 로직
+      patterns.py           # 공통 정규식 패턴 모음
+    stage1/
+      orchestrator.py       # Stage1 엄격 파싱 오케스트레이션
+      rules.py              # 라벨+값 기반 Stage1 규칙 집합
+    stage2/
+      orchestrator.py       # Stage2 복구 파싱 오케스트레이션
+      recovery_common.py    # Stage2 공통 복구 유틸/헬퍼
+      recovery_weight.py    # 중량/시간 관련 필드 복구
+      recovery_identity.py  # 차량번호/계량횟수 등 식별 필드 복구
+      recovery_geo.py       # 주소/좌표 관련 필드 복구
+      recovery_issuer.py    # 발행자(업체) 정보 필드 복구
+  out/
+    result_writer.py        # 결과 JSON/CSV 경로 생성 및 파일 저장
+  presentation/
+    console_printer.py      # 콘솔 리포트 출력 포맷팅
+```
 
 ## 빠른 디버깅 팁
 - 파일 수집 확인: `-v` 옵션 사용
