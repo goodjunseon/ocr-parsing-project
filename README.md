@@ -12,6 +12,7 @@
 ### 1) 환경 세팅 스크립트로 한 번에 실행 (권장)
 - Unix/macOS (현재 쉘에 활성화 반영): `source scripts/setup_mac.sh`
 - Windows PowerShell (현재 세션에 활성화 반영): `. .\scripts\setup_windows.ps1`
+- 네트워크 이슈로 pip 업데이트가 실패하면(선택): `SKIP_PIP_SETUP=1 source scripts/setup_mac.sh`
 - 커스텀 인터프리터/venv:
 - Unix/macOS: `PYTHON_BIN=python3.11 VENV_DIR=.venv-dev source scripts/setup_mac.sh`
 - Windows PowerShell: `. .\scripts\setup_windows.ps1 -PythonBin "C:\Path\to\python.exe" -VenvDir ".venv-dev"`
